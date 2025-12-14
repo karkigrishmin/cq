@@ -79,6 +79,15 @@ cat tx.cbor | cq fee --ada
 # Hex input (with or without 0x prefix)
 cq 84a400818258203b40265111d8bb3c3c...
 cq 0x84a400818258203b40265111d8bb3c3c...
+
+# Filter queries (v0.2.0+)
+cq 'outputs[value.coin > 1000000]' tx.cbor        # Outputs > 1 ADA
+cq 'outputs[address.address ~ "addr1"]' tx.cbor   # Mainnet outputs
+cq 'outputs[datum != null]' tx.cbor               # Outputs with datum
+
+# Decode any address (v0.2.0+)
+cq addr addr1qy8ac7qqy0vtulyl7wntmsxc6wex80gvcyjy33qffrhm7sh927ysx5sftuw0dlft05dz3c7revpf7jx0xnlcjz3g69mq4afdhv
+cq addr stake1uyehkck0lajq8gr28t9uxnuvgcqrc6070x3k9r8048z8y5gh6ffgw --json
 ```
 
 ## Query Shortcuts
