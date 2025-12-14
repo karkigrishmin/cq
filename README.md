@@ -21,13 +21,7 @@ Born from a real pain point in the [2025 Cardano Developer Survey](https://carda
 
 ## Installation
 
-### From source (recommended)
-
-```bash
-cargo install --git https://github.com/karkigrishmin/cq
-```
-
-### From crates.io
+### From crates.io (recommended)
 
 ```bash
 cargo install cq
@@ -35,7 +29,21 @@ cargo install cq
 
 ### Pre-built binaries
 
-Download from [GitHub Releases](https://github.com/karkigrishmin/cq/releases).
+```bash
+# Linux/macOS
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/karkigrishmin/cq/releases/latest/download/cq-installer.sh | sh
+
+# Windows (PowerShell)
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/karkigrishmin/cq/releases/latest/download/cq-installer.ps1 | iex"
+```
+
+Or download directly from [GitHub Releases](https://github.com/karkigrishmin/cq/releases).
+
+### From source
+
+```bash
+cargo install --git https://github.com/karkigrishmin/cq
+```
 
 ## Quick Start
 
