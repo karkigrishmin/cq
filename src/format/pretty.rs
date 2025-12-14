@@ -740,6 +740,7 @@ mod tests {
     #[test]
     fn test_format_lovelace_as_ada() {
         let args = Args {
+            command: None,
             first: None,
             second: None,
             json: false,
@@ -754,6 +755,7 @@ mod tests {
     #[test]
     fn test_format_lovelace_as_lovelace() {
         let args = Args {
+            command: None,
             first: None,
             second: None,
             json: false,

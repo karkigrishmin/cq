@@ -1,6 +1,6 @@
 //! CLI argument parsing for cq.
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 /// CBOR Query Tool for Cardano transactions.
@@ -22,6 +22,7 @@ use std::path::PathBuf;
     cq outputs.*.address tx.cbor   Wildcard (all addresses)
     cq tx.cbor --json              JSON output
     cq tx.cbor --check             Validate only (exit code)
+    cq addr addr1q8mnd...          Decode any Cardano address
 
 QUERY SHORTCUTS:
     fee        → body.fee
@@ -32,6 +33,10 @@ QUERY SHORTCUTS:
     hash       → (computed transaction hash)"#
 )]
 pub struct Args {
+    /// Subcommand to run.
+    #[command(subcommand)]
+    pub command: Option<Command>,
+
     /// Query path or input (file path / hex string).
     /// If one argument: treated as input.
     /// If two arguments: first is query, second is input.
@@ -61,6 +66,25 @@ pub struct Args {
     /// Disable colored output.
     #[arg(long)]
     pub no_color: bool,
+}
+
+/// Available subcommands.
+#[derive(Subcommand, Debug)]
+pub enum Command {
+    /// Decode and display a Cardano address.
+    ///
+    /// Parses a bech32 Cardano address and shows its components including
+    /// type (base, enterprise, reward, pointer, byron), network,
+    /// and payment/stake credentials.
+    #[command(name = "addr")]
+    Address {
+        /// The bech32 address to decode (e.g., addr1..., stake1..., addr_test1...).
+        address: String,
+
+        /// Output as JSON.
+        #[arg(long, short = 'j')]
+        json: bool,
+    },
 }
 
 /// Specifies how to obtain input bytes.

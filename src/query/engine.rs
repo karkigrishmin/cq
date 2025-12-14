@@ -126,7 +126,7 @@ fn transaction_to_json(tx: &DecodedTransaction) -> Result<JsonValue> {
                     .iter()
                     .map(|(name, amount): (&AssetName, &i64)| {
                         serde_json::json!({
-                            "name": decode_asset_name(&name.to_raw_bytes()),
+                            "name": decode_asset_name(name.to_raw_bytes()),
                             "amount": *amount
                         })
                     })
@@ -347,7 +347,7 @@ fn output_to_json(output: &cml_chain::transaction::TransactionOutput) -> JsonVal
     match output {
         TransactionOutput::AlonzoFormatTxOut(alonzo) => {
             let mut json = serde_json::json!({
-                "address": format_address(&alonzo.address),
+                "address": address_to_detailed_json(&alonzo.address),
                 "value": value_to_json(&alonzo.amount)
             });
 
@@ -362,7 +362,7 @@ fn output_to_json(output: &cml_chain::transaction::TransactionOutput) -> JsonVal
         }
         TransactionOutput::ConwayFormatTxOut(conway) => {
             let mut json = serde_json::json!({
-                "address": format_address(&conway.address),
+                "address": address_to_detailed_json(&conway.address),
                 "value": value_to_json(&conway.amount)
             });
 
@@ -408,6 +408,80 @@ fn format_address(addr: &cml_chain::address::Address) -> String {
     })
 }
 
+/// Convert an address to detailed JSON with type, network, and credentials.
+fn address_to_detailed_json(addr: &cml_chain::address::Address) -> JsonValue {
+    use cml_chain::address::Address;
+    use cml_core::serialization::ToBytes;
+
+    let bech32 = format_address(addr);
+
+    // Detect network from header byte (CIP-19)
+    // Network ID is encoded in bit 0 of the header byte for Shelley addresses
+    // - 0 = testnet (covers preprod, preview, and all other testnets)
+    // - 1 = mainnet
+    // Note: Cannot distinguish between different testnets from address alone
+    let raw_bytes = addr.to_raw_bytes();
+    let network = if !raw_bytes.is_empty() {
+        let header = raw_bytes[0];
+        match header & 0x01 {
+            0 => "testnet",
+            1 => "mainnet",
+            _ => unreachable!(),
+        }
+    } else {
+        "unknown"
+    };
+
+    match addr {
+        Address::Base(base_addr) => {
+            serde_json::json!({
+                "address": bech32,
+                "type": "base",
+                "network": network,
+                "payment_credential": credential_to_json(&base_addr.payment),
+                "stake_credential": credential_to_json(&base_addr.stake)
+            })
+        }
+        Address::Enterprise(enterprise_addr) => {
+            serde_json::json!({
+                "address": bech32,
+                "type": "enterprise",
+                "network": network,
+                "payment_credential": credential_to_json(&enterprise_addr.payment)
+            })
+        }
+        Address::Ptr(ptr_addr) => {
+            serde_json::json!({
+                "address": bech32,
+                "type": "pointer",
+                "network": network,
+                "payment_credential": credential_to_json(&ptr_addr.payment),
+                "pointer": {
+                    "slot": ptr_addr.stake.slot(),
+                    "tx_index": ptr_addr.stake.tx_index(),
+                    "cert_index": ptr_addr.stake.cert_index()
+                }
+            })
+        }
+        Address::Reward(reward_addr) => {
+            serde_json::json!({
+                "address": bech32,
+                "type": "reward",
+                "network": network,
+                "stake_credential": credential_to_json(&reward_addr.payment)
+            })
+        }
+        Address::Byron(byron_addr) => {
+            serde_json::json!({
+                "address": bech32,
+                "type": "byron",
+                "network": network,
+                "byron_address": hex::encode(byron_addr.to_bytes())
+            })
+        }
+    }
+}
+
 /// Try to decode asset name as UTF-8, fallback to hex.
 /// Only decodes if all characters are printable (no control chars).
 fn decode_asset_name(bytes: &[u8]) -> String {
@@ -432,7 +506,7 @@ fn value_to_json(value: &cml_chain::assets::Value) -> JsonValue {
                 .iter()
                 .map(|(name, amount): (&AssetName, &u64)| {
                     serde_json::json!({
-                        "name": decode_asset_name(&name.to_raw_bytes()),
+                        "name": decode_asset_name(name.to_raw_bytes()),
                         "amount": *amount
                     })
                 })

@@ -13,6 +13,7 @@
 //! - Pretty terminal output with colors
 //! - JSON output for piping
 //! - Validation mode with exit codes
+//! - Standalone address decoding
 
 pub mod cli;
 pub mod decode;
@@ -21,16 +22,49 @@ pub mod format;
 pub mod input;
 pub mod query;
 
-pub use cli::Args;
+pub use cli::{Args, Command};
 pub use error::{Error, Result};
 
-use decode::decode_transaction;
+use decode::{decode_address, decode_transaction};
 use format::format_output;
 use input::read_input;
 use query::execute_query;
 
 /// Run cq with the given arguments.
 pub fn run(args: &Args) -> Result<()> {
+    // Handle subcommands first
+    if let Some(ref command) = args.command {
+        return run_command(command, args);
+    }
+
+    // Default behavior: transaction query mode
+    run_transaction_mode(args)
+}
+
+/// Run a subcommand.
+fn run_command(command: &Command, args: &Args) -> Result<()> {
+    use std::io::IsTerminal;
+
+    match command {
+        Command::Address { address, json } => {
+            let decoded = decode_address(address)?;
+
+            if *json {
+                let json_output = serde_json::to_string_pretty(&decoded.to_json())
+                    .map_err(|e| Error::FormatError(format!("JSON error: {}", e)))?;
+                println!("{}", json_output);
+            } else {
+                let use_color = !args.no_color && std::io::stdout().is_terminal();
+                print!("{}", decoded.to_pretty(use_color));
+            }
+
+            Ok(())
+        }
+    }
+}
+
+/// Run transaction query mode (default).
+fn run_transaction_mode(args: &Args) -> Result<()> {
     // Resolve query and input from positional arguments
     let (query_opt, input_spec) = args.resolve();
 
