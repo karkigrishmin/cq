@@ -126,7 +126,7 @@ fn transaction_to_json(tx: &DecodedTransaction) -> Result<JsonValue> {
                     .iter()
                     .map(|(name, amount): (&AssetName, &i64)| {
                         serde_json::json!({
-                            "name": hex::encode(name.to_raw_bytes()),
+                            "name": decode_asset_name(&name.to_raw_bytes()),
                             "amount": *amount
                         })
                     })
@@ -300,7 +300,7 @@ fn transaction_to_json(tx: &DecodedTransaction) -> Result<JsonValue> {
                 .map(|(label, value)| {
                     serde_json::json!({
                         "label": label,
-                        "value": metadata_value_to_json(value)
+                        "value": decode_metadata_for_label(*label, value)
                     })
                 })
                 .collect();
@@ -408,6 +408,15 @@ fn format_address(addr: &cml_chain::address::Address) -> String {
     })
 }
 
+/// Try to decode asset name as UTF-8, fallback to hex.
+/// Only decodes if all characters are printable (no control chars).
+fn decode_asset_name(bytes: &[u8]) -> String {
+    String::from_utf8(bytes.to_vec())
+        .ok()
+        .filter(|s| !s.is_empty() && s.chars().all(|c| !c.is_control()))
+        .unwrap_or_else(|| hex::encode(bytes))
+}
+
 /// Convert a value (coin + multi-assets) to JSON.
 fn value_to_json(value: &cml_chain::assets::Value) -> JsonValue {
     use cml_chain::PolicyId;
@@ -423,7 +432,7 @@ fn value_to_json(value: &cml_chain::assets::Value) -> JsonValue {
                 .iter()
                 .map(|(name, amount): (&AssetName, &u64)| {
                     serde_json::json!({
-                        "name": hex::encode(name.to_raw_bytes()),
+                        "name": decode_asset_name(&name.to_raw_bytes()),
                         "amount": *amount
                     })
                 })
@@ -455,9 +464,17 @@ fn metadata_value_to_json(value: &cml_chain::auxdata::TransactionMetadatum) -> J
             serde_json::json!(i.to_string())
         }
         TransactionMetadatum::Bytes { bytes, .. } => {
-            serde_json::json!({
-                "bytes": hex::encode(bytes)
-            })
+            // Try to decode bytes as UTF-8 text, fallback to hex
+            let decoded = String::from_utf8(bytes.clone())
+                .ok()
+                .filter(|s| !s.is_empty() && s.chars().all(|c| !c.is_control()));
+            if let Some(text) = decoded {
+                serde_json::json!(text)
+            } else {
+                serde_json::json!({
+                    "bytes": hex::encode(bytes)
+                })
+            }
         }
         TransactionMetadatum::Text { text, .. } => {
             serde_json::json!(text)
@@ -467,18 +484,96 @@ fn metadata_value_to_json(value: &cml_chain::auxdata::TransactionMetadatum) -> J
             serde_json::json!(arr)
         }
         TransactionMetadatum::Map(map_entries) => {
-            let map: Vec<JsonValue> = map_entries
-                .entries
-                .iter()
-                .map(|(k, v)| {
-                    serde_json::json!({
-                        "key": metadata_value_to_json(k),
-                        "value": metadata_value_to_json(v)
+            // Convert map to a more readable JSON object when keys are strings
+            let mut obj = serde_json::Map::new();
+            let mut is_string_keyed = true;
+
+            for (k, v) in &map_entries.entries {
+                if let TransactionMetadatum::Text { text, .. } = k {
+                    obj.insert(text.clone(), metadata_value_to_json(v));
+                } else {
+                    is_string_keyed = false;
+                    break;
+                }
+            }
+
+            if is_string_keyed && !obj.is_empty() {
+                JsonValue::Object(obj)
+            } else {
+                // Fallback to array of key-value pairs
+                let map: Vec<JsonValue> = map_entries
+                    .entries
+                    .iter()
+                    .map(|(k, v)| {
+                        serde_json::json!({
+                            "key": metadata_value_to_json(k),
+                            "value": metadata_value_to_json(v)
+                        })
                     })
-                })
-                .collect();
-            serde_json::json!(map)
+                    .collect();
+                serde_json::json!(map)
+            }
         }
+    }
+}
+
+/// Decode metadata with CIP standard awareness.
+/// CIP-20 (label 674): Transaction messages
+/// CIP-25 (label 721): NFT metadata
+/// CIP-68 (labels 100, 222, 333, 444): Datum metadata standard
+fn decode_metadata_for_label(label: u64, value: &cml_chain::auxdata::TransactionMetadatum) -> JsonValue {
+    let decoded = metadata_value_to_json(value);
+
+    match label {
+        674 => {
+            // CIP-20: Transaction messages
+            serde_json::json!({
+                "cip": "CIP-20",
+                "standard": "Transaction Message",
+                "data": decoded
+            })
+        }
+        721 => {
+            // CIP-25: NFT Metadata
+            serde_json::json!({
+                "cip": "CIP-25",
+                "standard": "NFT Metadata",
+                "data": decoded
+            })
+        }
+        100 => {
+            // CIP-68: Reference NFT
+            serde_json::json!({
+                "cip": "CIP-68",
+                "standard": "Reference NFT (100)",
+                "data": decoded
+            })
+        }
+        222 => {
+            // CIP-68: Non-Fungible Token
+            serde_json::json!({
+                "cip": "CIP-68",
+                "standard": "NFT (222)",
+                "data": decoded
+            })
+        }
+        333 => {
+            // CIP-68: Fungible Token
+            serde_json::json!({
+                "cip": "CIP-68",
+                "standard": "FT (333)",
+                "data": decoded
+            })
+        }
+        444 => {
+            // CIP-68: Rich Fungible Token
+            serde_json::json!({
+                "cip": "CIP-68",
+                "standard": "RFT (444)",
+                "data": decoded
+            })
+        }
+        _ => decoded
     }
 }
 
