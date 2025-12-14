@@ -2,7 +2,7 @@
 
 use crate::decode::DecodedTransaction;
 use crate::error::{Error, Result};
-use crate::query::path::{PathSegment, QueryPath};
+use crate::query::path::{FilterExpr, PathSegment, QueryPath};
 use crate::query::shortcuts::{expand_shortcut, is_hash_query};
 use cml_crypto::RawBytesEncoding;
 use serde::Serialize;
@@ -850,6 +850,20 @@ fn execute_path(value: &JsonValue, segments: &[PathSegment]) -> Result<QueryValu
                     "Unexpected wildcard in non-wildcard path".to_string(),
                 ));
             }
+            PathSegment::Filter(filter) => {
+                // Filter operates on arrays
+                let arr = current
+                    .as_array()
+                    .ok_or_else(|| Error::InvalidQuery("Filter on non-array".to_string()))?;
+
+                let filtered: Vec<JsonValue> = arr
+                    .iter()
+                    .filter(|item| evaluate_filter(item, filter))
+                    .cloned()
+                    .collect();
+
+                JsonValue::Array(filtered)
+            }
         };
     }
 
@@ -895,7 +909,78 @@ fn execute_path_recursive(value: &JsonValue, segments: &[PathSegment]) -> Result
             }
             Ok(results)
         }
+        PathSegment::Filter(filter) => {
+            let arr = value
+                .as_array()
+                .ok_or_else(|| Error::InvalidQuery("Filter on non-array".to_string()))?;
+
+            let mut results = Vec::new();
+            for item in arr {
+                if evaluate_filter(item, filter) {
+                    let sub_results = execute_path_recursive(item, rest)?;
+                    results.extend(sub_results);
+                }
+            }
+            Ok(results)
+        }
     }
+}
+
+/// Evaluate a filter expression against a JSON value.
+fn evaluate_filter(value: &JsonValue, filter: &FilterExpr) -> bool {
+    use crate::query::path::{FilterOp, FilterValue};
+
+    // Get the field value using dot-notation path
+    let field_value = get_nested_field(value, &filter.field);
+
+    match (&filter.op, &filter.value) {
+        // Numeric comparisons
+        (FilterOp::Gt, FilterValue::Number(n)) => {
+            field_value.and_then(|v| v.as_f64()).is_some_and(|fv| fv > *n)
+        }
+        (FilterOp::Lt, FilterValue::Number(n)) => {
+            field_value.and_then(|v| v.as_f64()).is_some_and(|fv| fv < *n)
+        }
+        (FilterOp::Gte, FilterValue::Number(n)) => {
+            field_value.and_then(|v| v.as_f64()).is_some_and(|fv| fv >= *n)
+        }
+        (FilterOp::Lte, FilterValue::Number(n)) => {
+            field_value.and_then(|v| v.as_f64()).is_some_and(|fv| fv <= *n)
+        }
+        (FilterOp::Eq, FilterValue::Number(n)) => {
+            field_value.and_then(|v| v.as_f64()).is_some_and(|fv| (fv - *n).abs() < f64::EPSILON)
+        }
+        (FilterOp::Ne, FilterValue::Number(n)) => {
+            field_value.and_then(|v| v.as_f64()).is_some_and(|fv| (fv - *n).abs() >= f64::EPSILON)
+        }
+
+        // String comparisons
+        (FilterOp::Eq, FilterValue::String(s)) => {
+            field_value.and_then(|v| v.as_str()).is_some_and(|fv| fv == s)
+        }
+        (FilterOp::Ne, FilterValue::String(s)) => {
+            field_value.and_then(|v| v.as_str()).is_some_and(|fv| fv != s)
+        }
+        (FilterOp::Contains, FilterValue::String(s)) => {
+            field_value.and_then(|v| v.as_str()).is_some_and(|fv| fv.contains(s.as_str()))
+        }
+
+        // Null comparisons (existence checks)
+        (FilterOp::Eq, FilterValue::Null) => field_value.is_none() || field_value == Some(&JsonValue::Null),
+        (FilterOp::Ne, FilterValue::Null) => field_value.is_some() && field_value != Some(&JsonValue::Null),
+
+        // Other combinations
+        _ => false,
+    }
+}
+
+/// Get a nested field from a JSON value using dot-notation.
+fn get_nested_field<'a>(value: &'a JsonValue, path: &str) -> Option<&'a JsonValue> {
+    let mut current = value;
+    for part in path.split('.') {
+        current = current.get(part)?;
+    }
+    Some(current)
 }
 
 #[cfg(test)]

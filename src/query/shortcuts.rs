@@ -29,6 +29,7 @@ fn shortcut_expansion(shortcut: &str) -> Option<&'static str> {
 /// Handles both exact matches and prefixes:
 /// - `outputs` → `body.outputs`
 /// - `outputs.0.address` → `body.outputs.0.address`
+/// - `outputs[filter]` → `body.outputs[filter]`
 ///
 /// # Shortcuts
 ///
@@ -49,10 +50,21 @@ pub fn expand_shortcut(query: &str) -> String {
         return expanded.to_string();
     }
 
-    // Check if query starts with a shortcut followed by a dot
-    if let Some(dot_pos) = query.find('.') {
-        let prefix = &query[..dot_pos];
-        let rest = &query[dot_pos..]; // includes the dot
+    // Find the first delimiter (dot or bracket)
+    let dot_pos = query.find('.');
+    let bracket_pos = query.find('[');
+
+    // Determine which comes first
+    let delimiter_pos = match (dot_pos, bracket_pos) {
+        (Some(d), Some(b)) => Some(d.min(b)),
+        (Some(d), None) => Some(d),
+        (None, Some(b)) => Some(b),
+        (None, None) => None,
+    };
+
+    if let Some(pos) = delimiter_pos {
+        let prefix = &query[..pos];
+        let rest = &query[pos..]; // includes the delimiter
 
         if let Some(expanded_prefix) = shortcut_expansion(prefix) {
             return format!("{}{}", expanded_prefix, rest);
@@ -104,6 +116,18 @@ mod tests {
         );
         assert_eq!(expand_shortcut("unknown"), "unknown");
         assert_eq!(expand_shortcut("unknown.field"), "unknown.field");
+    }
+
+    #[test]
+    fn test_expand_shortcuts_with_filter() {
+        assert_eq!(
+            expand_shortcut("outputs[value.coin > 1000000]"),
+            "body.outputs[value.coin > 1000000]"
+        );
+        assert_eq!(
+            expand_shortcut("outputs[value.coin > 1000000].address"),
+            "body.outputs[value.coin > 1000000].address"
+        );
     }
 
     #[test]
