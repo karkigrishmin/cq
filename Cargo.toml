@@ -1,0 +1,53 @@
+[package]
+name = "cq"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "CBOR Query Tool for Cardano transactions - think 'jq for Cardano CBOR'"
+license = "MIT"
+repository = "https://github.com/karkigrishmin/cq"
+homepage = "https://github.com/karkigrishmin/cq"
+documentation = "https://github.com/karkigrishmin/cq#readme"
+readme = "README.md"
+keywords = ["cardano", "cbor", "blockchain", "cli", "cryptocurrency"]
+categories = ["command-line-utilities", "cryptography::cryptocurrencies"]
+exclude = ["tests/fixtures/*", ".github/*"]
+
+[dependencies]
+# CLI
+clap = { version = "4.5", features = ["derive", "env"] }
+
+# Cardano (native Rust - no WASM)
+cml-core = "6.0"
+cml-chain = "6.0"
+cml-crypto = "6.0"
+
+# CBOR
+ciborium = "0.2"
+hex = "0.4"
+
+# Output
+colored = "2.1"
+comfy-table = "7.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Errors
+thiserror = "2.0"
+anyhow = "1.0"
+
+[dev-dependencies]
+assert_cmd = "2.0"
+predicates = "3.1"
+tempfile = "3.14"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
