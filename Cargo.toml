@@ -1,6 +1,7 @@
 [package]
 name = "cq"
 version = "0.1.0"
+authors = ["karkigrishmin <grishminkarki7@gmail.com>"]
 edition = "2024"
 rust-version = "1.85"
 description = "CBOR Query Tool for Cardano transactions - think 'jq for Cardano CBOR'"
