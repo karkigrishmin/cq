@@ -233,6 +233,17 @@ impl QueryPath {
             .any(|s| matches!(s, PathSegment::Filter(_)))
     }
 
+    /// Check if this path has a filter followed by more segments.
+    /// This requires recursive execution since filters return arrays.
+    pub fn has_filter_with_continuation(&self) -> bool {
+        for (i, segment) in self.segments.iter().enumerate() {
+            if matches!(segment, PathSegment::Filter(_)) && i < self.segments.len() - 1 {
+                return true;
+            }
+        }
+        false
+    }
+
     /// Check if this path is empty (no segments).
     pub fn is_empty(&self) -> bool {
         self.segments.is_empty()

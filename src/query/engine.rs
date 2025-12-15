@@ -85,7 +85,10 @@ pub fn execute_query(tx: &DecodedTransaction, query: &str) -> Result<QueryResult
     }
 
     // Execute the path query
-    if path.has_wildcard() {
+    // Use recursive execution for wildcards OR filters with continuation
+    // (filters return multiple results that need to be iterated)
+    let needs_recursive = path.has_wildcard() || path.has_filter_with_continuation();
+    if needs_recursive {
         let results = execute_path_with_wildcards(&tx_json, &path.segments)?;
         Ok(QueryResult::Multiple(results))
     } else {
@@ -966,8 +969,10 @@ fn evaluate_filter(value: &JsonValue, filter: &FilterExpr) -> bool {
         }
 
         // Null comparisons (existence checks)
-        (FilterOp::Eq, FilterValue::Null) => field_value.is_none() || field_value == Some(&JsonValue::Null),
-        (FilterOp::Ne, FilterValue::Null) => field_value.is_some() && field_value != Some(&JsonValue::Null),
+        // == null: true if field doesn't exist OR field value is null
+        (FilterOp::Eq, FilterValue::Null) => field_value.is_none_or(|v| v.is_null()),
+        // != null: true if field exists AND field value is not null
+        (FilterOp::Ne, FilterValue::Null) => field_value.is_some_and(|v| !v.is_null()),
 
         // Other combinations
         _ => false,
@@ -1069,5 +1074,107 @@ mod tests {
 
         let result = execute_path(&json, &segments);
         assert!(matches!(result, Err(Error::IndexOutOfBounds(10))));
+    }
+
+    #[test]
+    fn test_filter_not_null() {
+        use crate::query::path::{FilterExpr, FilterOp, FilterValue};
+
+        let json = serde_json::json!({
+            "items": [
+                { "name": "a", "datum": { "type": "inline" } },
+                { "name": "b" },
+                { "name": "c", "datum": null }
+            ]
+        });
+
+        let filter = FilterExpr {
+            field: "datum".to_string(),
+            op: FilterOp::Ne,
+            value: FilterValue::Null,
+        };
+
+        let segments = vec![
+            PathSegment::Field("items".into()),
+            PathSegment::Filter(filter),
+        ];
+
+        let result = execute_path(&json, &segments).unwrap();
+        // Should return only item "a" which has datum != null
+        match result {
+            QueryValue::Array(arr) => {
+                assert_eq!(arr.len(), 1, "Expected 1 item with datum != null");
+                if let QueryValue::Object(obj) = &arr[0] {
+                    assert_eq!(obj.get("name").and_then(|v| v.as_str()), Some("a"));
+                } else {
+                    panic!("Expected object");
+                }
+            }
+            _ => panic!("Expected array"),
+        }
+    }
+
+    #[test]
+    fn test_filter_is_null() {
+        use crate::query::path::{FilterExpr, FilterOp, FilterValue};
+
+        let json = serde_json::json!({
+            "items": [
+                { "name": "a", "datum": { "type": "inline" } },
+                { "name": "b" },
+                { "name": "c", "datum": null }
+            ]
+        });
+
+        let filter = FilterExpr {
+            field: "datum".to_string(),
+            op: FilterOp::Eq,
+            value: FilterValue::Null,
+        };
+
+        let segments = vec![
+            PathSegment::Field("items".into()),
+            PathSegment::Filter(filter),
+        ];
+
+        let result = execute_path(&json, &segments).unwrap();
+        // Should return items "b" (missing datum) and "c" (datum is null)
+        match result {
+            QueryValue::Array(arr) => {
+                assert_eq!(arr.len(), 2, "Expected 2 items with datum == null");
+            }
+            _ => panic!("Expected array"),
+        }
+    }
+
+    #[test]
+    fn test_filter_integration_parsed() {
+        use crate::query::path::QueryPath;
+
+        let json = serde_json::json!({
+            "outputs": [
+                { "address": "addr1", "datum": { "type": "inline" } },
+                { "address": "addr2" },
+                { "address": "addr3" }
+            ]
+        });
+
+        // Parse like the real code does
+        let path = QueryPath::parse("outputs[datum != null]").unwrap();
+
+        eprintln!("Segments: {:?}", path.segments);
+        eprintln!("Has wildcard: {}", path.has_wildcard());
+        eprintln!("Has filter: {}", path.has_filter());
+
+        let result = execute_path(&json, &path.segments).unwrap();
+        eprintln!("Result: {:?}", result);
+
+        match result {
+            QueryValue::Array(arr) => {
+                eprintln!("Array length: {}", arr.len());
+                assert_eq!(arr.len(), 1, "Expected 1 item with datum != null");
+            }
+            _ => panic!("Expected array"),
+        }
     }
 }
