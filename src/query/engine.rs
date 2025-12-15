@@ -598,7 +598,10 @@ fn metadata_value_to_json(value: &cml_chain::auxdata::TransactionMetadatum) -> J
 /// CIP-20 (label 674): Transaction messages
 /// CIP-25 (label 721): NFT metadata
 /// CIP-68 (labels 100, 222, 333, 444): Datum metadata standard
-fn decode_metadata_for_label(label: u64, value: &cml_chain::auxdata::TransactionMetadatum) -> JsonValue {
+fn decode_metadata_for_label(
+    label: u64,
+    value: &cml_chain::auxdata::TransactionMetadatum,
+) -> JsonValue {
     let decoded = metadata_value_to_json(value);
 
     match label {
@@ -650,7 +653,7 @@ fn decode_metadata_for_label(label: u64, value: &cml_chain::auxdata::Transaction
                 "data": decoded
             })
         }
-        _ => decoded
+        _ => decoded,
     }
 }
 
@@ -938,35 +941,35 @@ fn evaluate_filter(value: &JsonValue, filter: &FilterExpr) -> bool {
 
     match (&filter.op, &filter.value) {
         // Numeric comparisons
-        (FilterOp::Gt, FilterValue::Number(n)) => {
-            field_value.and_then(|v| v.as_f64()).is_some_and(|fv| fv > *n)
-        }
-        (FilterOp::Lt, FilterValue::Number(n)) => {
-            field_value.and_then(|v| v.as_f64()).is_some_and(|fv| fv < *n)
-        }
-        (FilterOp::Gte, FilterValue::Number(n)) => {
-            field_value.and_then(|v| v.as_f64()).is_some_and(|fv| fv >= *n)
-        }
-        (FilterOp::Lte, FilterValue::Number(n)) => {
-            field_value.and_then(|v| v.as_f64()).is_some_and(|fv| fv <= *n)
-        }
-        (FilterOp::Eq, FilterValue::Number(n)) => {
-            field_value.and_then(|v| v.as_f64()).is_some_and(|fv| (fv - *n).abs() < f64::EPSILON)
-        }
-        (FilterOp::Ne, FilterValue::Number(n)) => {
-            field_value.and_then(|v| v.as_f64()).is_some_and(|fv| (fv - *n).abs() >= f64::EPSILON)
-        }
+        (FilterOp::Gt, FilterValue::Number(n)) => field_value
+            .and_then(|v| v.as_f64())
+            .is_some_and(|fv| fv > *n),
+        (FilterOp::Lt, FilterValue::Number(n)) => field_value
+            .and_then(|v| v.as_f64())
+            .is_some_and(|fv| fv < *n),
+        (FilterOp::Gte, FilterValue::Number(n)) => field_value
+            .and_then(|v| v.as_f64())
+            .is_some_and(|fv| fv >= *n),
+        (FilterOp::Lte, FilterValue::Number(n)) => field_value
+            .and_then(|v| v.as_f64())
+            .is_some_and(|fv| fv <= *n),
+        (FilterOp::Eq, FilterValue::Number(n)) => field_value
+            .and_then(|v| v.as_f64())
+            .is_some_and(|fv| (fv - *n).abs() < f64::EPSILON),
+        (FilterOp::Ne, FilterValue::Number(n)) => field_value
+            .and_then(|v| v.as_f64())
+            .is_some_and(|fv| (fv - *n).abs() >= f64::EPSILON),
 
         // String comparisons
-        (FilterOp::Eq, FilterValue::String(s)) => {
-            field_value.and_then(|v| v.as_str()).is_some_and(|fv| fv == s)
-        }
-        (FilterOp::Ne, FilterValue::String(s)) => {
-            field_value.and_then(|v| v.as_str()).is_some_and(|fv| fv != s)
-        }
-        (FilterOp::Contains, FilterValue::String(s)) => {
-            field_value.and_then(|v| v.as_str()).is_some_and(|fv| fv.contains(s.as_str()))
-        }
+        (FilterOp::Eq, FilterValue::String(s)) => field_value
+            .and_then(|v| v.as_str())
+            .is_some_and(|fv| fv == s),
+        (FilterOp::Ne, FilterValue::String(s)) => field_value
+            .and_then(|v| v.as_str())
+            .is_some_and(|fv| fv != s),
+        (FilterOp::Contains, FilterValue::String(s)) => field_value
+            .and_then(|v| v.as_str())
+            .is_some_and(|fv| fv.contains(s.as_str())),
 
         // Null comparisons (existence checks)
         // == null: true if field doesn't exist OR field value is null

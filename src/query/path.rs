@@ -95,9 +95,9 @@ impl QueryPath {
                 }
 
                 // Find matching closing bracket
-                let bracket_end = remaining.find(']').ok_or_else(|| {
-                    Error::InvalidQuery("Unclosed bracket in filter".to_string())
-                })?;
+                let bracket_end = remaining
+                    .find(']')
+                    .ok_or_else(|| Error::InvalidQuery("Unclosed bracket in filter".to_string()))?;
 
                 // Parse filter expression
                 let filter_str = &remaining[bracket_start + 1..bracket_end];
@@ -176,9 +176,7 @@ impl QueryPath {
                 let value_str = s[pos + op_str.len()..].trim();
 
                 if field.is_empty() {
-                    return Err(Error::InvalidQuery(
-                        "Filter field is empty".to_string(),
-                    ));
+                    return Err(Error::InvalidQuery("Filter field is empty".to_string()));
                 }
 
                 let value = Self::parse_filter_value(value_str)?;
@@ -203,9 +201,7 @@ impl QueryPath {
         }
 
         // Quoted string
-        if (s.starts_with('"') && s.ends_with('"'))
-            || (s.starts_with('\'') && s.ends_with('\''))
-        {
+        if (s.starts_with('"') && s.ends_with('"')) || (s.starts_with('\'') && s.ends_with('\'')) {
             let inner = &s[1..s.len() - 1];
             return Ok(FilterValue::String(inner.to_string()));
         }

@@ -3,5 +3,5 @@
 mod address;
 mod transaction;
 
-pub use address::{decode_address, DecodedAddress};
+pub use address::{DecodedAddress, decode_address};
 pub use transaction::{DecodedTransaction, decode_transaction};
