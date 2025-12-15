@@ -39,6 +39,30 @@ powershell -ExecutionPolicy Bypass -c "irm https://github.com/karkigrishmin/cq/r
 
 Or download directly from [GitHub Releases](https://github.com/karkigrishmin/cq/releases).
 
+## Upgrading
+
+To upgrade to the latest version:
+
+### Check for updates
+```bash
+cq update
+```
+
+### Upgrade via cargo
+```bash
+cargo install cq --force
+```
+
+### Pre-built binaries
+Re-run the installer script - it always fetches the latest version:
+```bash
+# Linux/macOS
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/karkigrishmin/cq/releases/latest/download/cq-installer.sh | sh
+
+# Windows (PowerShell)
+powershell -ExecutionPolicy Bypass -c "irm https://github.com/karkigrishmin/cq/releases/latest/download/cq-installer.ps1 | iex"
+```
+
 ### From source
 
 ```bash

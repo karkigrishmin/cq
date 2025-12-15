@@ -1,6 +1,6 @@
 [package]
 name = "cq"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["karkigrishmin <grishminkarki7@gmail.com>"]
 edition = "2024"
 rust-version = "1.85"
@@ -36,6 +36,9 @@ serde_json = "1.0"
 # Errors
 thiserror = "2.0"
 anyhow = "1.0"
+
+# HTTP client (for update checker)
+ureq = "2.9"
 
 [dev-dependencies]
 assert_cmd = "2.0"

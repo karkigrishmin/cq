@@ -52,6 +52,10 @@ pub enum Error {
     /// Unsupported transaction era.
     #[error("Unsupported era: only Babbage and Conway transactions are supported")]
     UnsupportedEra,
+
+    /// Network error (e.g., when checking for updates).
+    #[error("Network error: {0}")]
+    NetworkError(String),
 }
 
 impl Error {
@@ -68,6 +72,8 @@ impl Error {
             Error::InvalidQuery(_) | Error::FieldNotFound(_) | Error::IndexOutOfBounds(_) => 4,
             // Format errors
             Error::FormatError(_) => 5,
+            // Network errors (non-fatal for update check)
+            Error::NetworkError(_) => 6,
         }
     }
 }

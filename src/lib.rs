@@ -21,6 +21,7 @@ pub mod error;
 pub mod format;
 pub mod input;
 pub mod query;
+pub mod update;
 
 pub use cli::{Args, Command};
 pub use error::{Error, Result};
@@ -60,6 +61,7 @@ fn run_command(command: &Command, args: &Args) -> Result<()> {
 
             Ok(())
         }
+        Command::Update => update::check_for_updates(),
     }
 }
 

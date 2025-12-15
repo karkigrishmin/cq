@@ -85,6 +85,13 @@ pub enum Command {
         #[arg(long, short = 'j')]
         json: bool,
     },
+
+    /// Check for updates and show upgrade instructions.
+    ///
+    /// Queries crates.io for the latest version and displays
+    /// upgrade instructions if a newer version is available.
+    #[command(name = "update")]
+    Update,
 }
 
 /// Specifies how to obtain input bytes.
