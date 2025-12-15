@@ -13,6 +13,11 @@ Born from a real pain point in the [2025 Cardano Developer Survey](https://carda
 - **Parse transactions** from file, hex string, or stdin
 - **Query with dot-notation** - `cq outputs.0.address tx.cbor`
 - **Wildcard support** - `cq outputs.*.value tx.cbor`
+- **Filter queries** - `cq 'outputs[value.coin > 1000000]' tx.cbor`
+- **Plutus data decoding** - Datums and redeemers decoded to JSON
+- **Address decoding** - `cq addr <bech32>` decodes any Cardano address
+- **CIP metadata standards** - CIP-20 messages, CIP-25 NFTs, CIP-68 datum metadata
+- **Asset name decoding** - Token names display as UTF-8 when valid
 - **Bech32 addresses** - Auto-formatted for readability
 - **Pretty terminal output** - Colors, tables, smart truncation
 - **JSON output** - Perfect for piping to `jq`
@@ -109,6 +114,21 @@ cq 'outputs[value.coin > 1000000]' tx.cbor        # Outputs > 1 ADA
 cq 'outputs[address.address ~ "addr1"]' tx.cbor   # Mainnet outputs
 cq 'outputs[datum != null]' tx.cbor               # Outputs with datum
 
+# Datum queries - decode Plutus data (v0.3.0+)
+cq 'outputs.0.datum.value' tx.cbor --json         # Decoded datum structure
+cq 'outputs.0.datum.value.constructor' tx.cbor    # Constructor index
+cq 'outputs.0.datum.value.fields.0.int' tx.cbor   # First field (integer)
+cq 'outputs.0.datum.value.fields.1.bytes' tx.cbor # Second field (bytes)
+
+# Redeemer queries (v0.3.0+)
+cq redeemers tx.cbor --json                       # All redeemers with decoded data
+cq 'redeemers.0.purpose' tx.cbor                  # Redeemer purpose (spend/mint/etc)
+cq 'redeemers.0.data' tx.cbor --json              # Decoded redeemer data
+cq 'redeemers.0.ex_units' tx.cbor --json          # Execution units (mem/steps)
+
+# Reference inputs (CIP-31, v0.3.0+)
+cq reference_inputs tx.cbor --json                # Reference inputs (read-only)
+
 # Decode any address (v0.2.0+)
 cq addr addr1qy8ac7qqy0vtulyl7wntmsxc6wex80gvcyjy33qffrhm7sh927ysx5sftuw0dlft05dz3c7revpf7jx0xnlcjz3g69mq4afdhv
 cq addr stake1uyehkck0lajq8gr28t9uxnuvgcqrc6070x3k9r8048z8y5gh6ffgw --json
@@ -129,6 +149,8 @@ cq addr stake1uyehkck0lajq8gr28t9uxnuvgcqrc6070x3k9r8048z8y5gh6ffgw --json
 | `certs` | `body.certs` | Certificates |
 | `withdrawals` | `body.withdrawals` | Stake withdrawals |
 | `collateral` | `body.collateral_inputs` | Collateral inputs |
+| `reference_inputs` | `body.reference_inputs` | Reference inputs (CIP-31) |
+| `redeemers` | `witness_set.redeemers` | Script redeemers |
 | `required_signers` | `body.required_signers` | Required signers |
 | `network_id` | `body.network_id` | Network ID |
 | `validity_start` | `body.validity_interval_start` | Valid from slot |
@@ -248,7 +270,7 @@ cargo build --release
 ### Running Tests
 
 ```bash
-cargo test              # All tests (79 total)
+cargo test              # All tests (89 total)
 cargo test --test cli   # Integration tests only
 cargo test --lib        # Unit tests only
 ```

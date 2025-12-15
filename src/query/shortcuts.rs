@@ -14,6 +14,8 @@ fn shortcut_expansion(shortcut: &str) -> Option<&'static str> {
         "certs" => Some("body.certs"),
         "withdrawals" => Some("body.withdrawals"),
         "collateral" => Some("body.collateral_inputs"),
+        "reference_inputs" => Some("body.reference_inputs"),
+        "redeemers" => Some("witness_set.redeemers"),
         "required_signers" => Some("body.required_signers"),
         "network_id" => Some("body.network_id"),
         "validity_start" => Some("body.validity_interval_start"),

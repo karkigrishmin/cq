@@ -159,6 +159,19 @@ fn transaction_to_json(tx: &DecodedTransaction) -> Result<JsonValue> {
             .collect::<Vec<_>>()
     });
 
+    // Build reference inputs if present (CIP-31)
+    let reference_inputs = body.reference_inputs.as_ref().map(|inputs| {
+        inputs
+            .iter()
+            .map(|input| {
+                serde_json::json!({
+                    "transaction_id": hex::encode(input.transaction_id.to_raw_bytes()),
+                    "index": input.index
+                })
+            })
+            .collect::<Vec<_>>()
+    });
+
     // Build required signers if present
     let required_signers = body.required_signers.as_ref().map(|signers| {
         signers
@@ -185,6 +198,9 @@ fn transaction_to_json(tx: &DecodedTransaction) -> Result<JsonValue> {
     }
     if let Some(c) = collateral_inputs {
         body_json["collateral_inputs"] = serde_json::json!(c);
+    }
+    if let Some(r) = reference_inputs {
+        body_json["reference_inputs"] = serde_json::json!(r);
     }
     if let Some(r) = required_signers {
         body_json["required_signers"] = serde_json::json!(r);
@@ -289,11 +305,51 @@ fn transaction_to_json(tx: &DecodedTransaction) -> Result<JsonValue> {
         witness_json["plutus_v3_scripts"] = serde_json::json!(scripts);
     }
     if let Some(data) = &witness_set.plutus_datums {
-        witness_json["plutus_data"] = serde_json::json!(data.len());
+        // Decode each plutus datum in witness set
+        let datums: Vec<JsonValue> = data
+            .iter()
+            .map(|datum| {
+                let mut datum_json = serde_json::json!({
+                    "bytes": hex::encode(datum.to_cbor_bytes())
+                });
+                if let Ok(decoded) = decode_plutus_datum_to_json(datum) {
+                    datum_json["value"] = decoded;
+                }
+                datum_json
+            })
+            .collect();
+        witness_json["plutus_datums"] = serde_json::json!(datums);
     }
-    if witness_set.redeemers.is_some() {
-        // Redeemers present (can't easily get count without iteration)
-        witness_json["redeemers"] = serde_json::json!("present");
+    if let Some(redeemers) = &witness_set.redeemers {
+        // Convert to flat format and decode each redeemer
+        let flat_redeemers = redeemers.clone().to_flat_format();
+        let redeemers_json: Vec<JsonValue> = flat_redeemers
+            .iter()
+            .map(|r| {
+                let purpose = match r.tag {
+                    cml_chain::plutus::RedeemerTag::Spend => "spend",
+                    cml_chain::plutus::RedeemerTag::Mint => "mint",
+                    cml_chain::plutus::RedeemerTag::Cert => "cert",
+                    cml_chain::plutus::RedeemerTag::Reward => "reward",
+                    cml_chain::plutus::RedeemerTag::Voting => "voting",
+                    cml_chain::plutus::RedeemerTag::Proposing => "proposing",
+                };
+                let mut redeemer_json = serde_json::json!({
+                    "purpose": purpose,
+                    "index": r.index,
+                    "ex_units": {
+                        "mem": r.ex_units.mem,
+                        "steps": r.ex_units.steps
+                    }
+                });
+                // Decode the redeemer data (PlutusData)
+                if let Ok(decoded) = decode_plutus_datum_to_json(&r.data) {
+                    redeemer_json["data"] = decoded;
+                }
+                redeemer_json
+            })
+            .collect();
+        witness_json["redeemers"] = serde_json::json!(redeemers_json);
     }
 
     // Build auxiliary data if present

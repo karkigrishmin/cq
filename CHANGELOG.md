@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-12-15
+
+### Added
+
+- **Plutus Data decoding**: Inline datums now include decoded `value` field showing structured Plutus data
+  - Query with `outputs.0.datum.value.constructor`, `outputs.0.datum.value.fields.0.int`, etc.
+- **Redeemer decoding**: Full redeemer information with decoded data
+  - Purpose (spend/mint/cert/reward/voting/proposing)
+  - Index, execution units (mem/steps)
+  - Decoded Plutus data structure
+- **Reference inputs (CIP-31)**: Read-only UTxO references now included in JSON output
+- **Witness plutus_datums**: Now decoded instead of just showing count
+- **Update command**: `cq update` checks for new versions on crates.io
+- **New shortcuts**: `reference_inputs`, `redeemers`
+
 ## [0.2.0] - 2025-12-15
 
 ### Added
@@ -71,6 +86,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Native Rust implementation (no WASM)
 - Supports Rust 1.85+ (edition 2024)
 
-[Unreleased]: https://github.com/karkigrishmin/cq/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/karkigrishmin/cq/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/karkigrishmin/cq/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/karkigrishmin/cq/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/karkigrishmin/cq/releases/tag/v0.1.0
