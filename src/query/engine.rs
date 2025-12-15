@@ -4,6 +4,10 @@ use crate::decode::DecodedTransaction;
 use crate::error::{Error, Result};
 use crate::query::path::{FilterExpr, PathSegment, QueryPath};
 use crate::query::shortcuts::{expand_shortcut, is_hash_query};
+use cml_chain::json::plutus_datums::{
+    CardanoNodePlutusDatumSchema, decode_plutus_datum_to_json_str,
+};
+use cml_chain::plutus::PlutusData;
 use cml_crypto::RawBytesEncoding;
 use serde::Serialize;
 use serde_json::Value as JsonValue;
@@ -380,11 +384,18 @@ fn output_to_json(output: &cml_chain::transaction::TransactionOutput) -> JsonVal
                     }
                     DatumOption::Datum { datum, .. } => {
                         let bytes = datum.to_cbor_bytes();
-                        json["datum"] = serde_json::json!({
+                        let mut datum_json = serde_json::json!({
                             "type": "inline",
                             "bytes": hex::encode(&bytes),
                             "size": bytes.len()
                         });
+
+                        // Decode Plutus data to JSON
+                        if let Ok(decoded) = decode_plutus_datum_to_json(datum) {
+                            datum_json["value"] = decoded;
+                        }
+
+                        json["datum"] = datum_json;
                     }
                 }
             }
@@ -400,6 +411,22 @@ fn output_to_json(output: &cml_chain::transaction::TransactionOutput) -> JsonVal
             json
         }
     }
+}
+
+/// Decode PlutusData to JSON using DetailedSchema format.
+///
+/// Returns JSON in the format:
+/// - Constructor: `{"constructor": N, "fields": [...]}`
+/// - Integer: `{"int": N}`
+/// - Bytes: `{"bytes": "hexstring"}`
+/// - List: `{"list": [...]}`
+/// - Map: `{"map": [{"k": ..., "v": ...}, ...]}`
+fn decode_plutus_datum_to_json(datum: &PlutusData) -> std::result::Result<JsonValue, ()> {
+    let json_str =
+        decode_plutus_datum_to_json_str(datum, CardanoNodePlutusDatumSchema::DetailedSchema)
+            .map_err(|_| ())?;
+
+    serde_json::from_str(&json_str).map_err(|_| ())
 }
 
 /// Format an address to bech32.
@@ -1179,5 +1206,31 @@ mod tests {
             }
             _ => panic!("Expected array"),
         }
+    }
+
+    #[test]
+    fn test_decode_plutus_datum_to_json() {
+        use cml_chain::plutus::{ConstrPlutusData, PlutusData};
+
+        // Create a simple Constr(0, [Int(42), Bytes("hello")])
+        let datum = PlutusData::new_constr_plutus_data(ConstrPlutusData::new(
+            0,
+            vec![
+                PlutusData::new_integer(cml_chain::utils::BigInteger::from(42)),
+                PlutusData::new_bytes(b"hello".to_vec()),
+            ],
+        ));
+
+        let result = decode_plutus_datum_to_json(&datum);
+        assert!(result.is_ok());
+
+        let json = result.unwrap();
+        assert_eq!(json["constructor"], 0);
+        assert!(json["fields"].is_array());
+
+        let fields = json["fields"].as_array().unwrap();
+        assert_eq!(fields.len(), 2);
+        assert_eq!(fields[0]["int"], 42);
+        assert_eq!(fields[1]["bytes"], "68656c6c6f"); // "hello" in hex
     }
 }
